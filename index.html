@@ -6,8 +6,26 @@
 <title>Djembe VR</title>
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #1a0f08; font-family: sans-serif; }
-  #info { position: absolute; top: 10px; left: 0; right: 0; text-align: center; color: #f5deb3;
-          font-size: 14px; pointer-events: none; text-shadow: 0 1px 2px #000; padding: 0 10px; }
+  #help { position: fixed; inset: 0; z-index: 1000; display: none; align-items: center; justify-content: center;
+          background: rgba(10, 5, 2, 0.75); }
+  #help.open { display: flex; }
+  #help .card { background: #2a160a; color: #f5deb3; border: 3px solid #f2c81e; border-radius: 18px;
+                max-width: 640px; width: calc(100% - 40px); max-height: 88vh; overflow-y: auto;
+                padding: 22px 28px; box-sizing: border-box; line-height: 1.45; font-size: 15px; }
+  #help h1 { margin: 0 0 4px; font-size: 28px; text-align: center; color: #ffcf8a; }
+  #help h2 { margin: 18px 0 6px; font-size: 18px; color: #f2c81e; }
+  #help .sub { text-align: center; margin: 0 0 6px; color: #e8c99a; }
+  #help p { margin: 4px 0; }
+  #help ul { margin: 4px 0; padding-left: 4px; list-style: none; }
+  #help li { margin: 4px 0; }
+  #help .dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-right: 8px; vertical-align: -2px; }
+  #help .bass { background: #ff6a2a; } #help .tone { background: #ffd23a; } #help .slap { background: #3ad7ff; }
+  #help kbd { background: #4a2c16; border: 1px solid #8a6a40; border-radius: 4px; padding: 0 6px; font-family: inherit; }
+  #play { display: block; margin: 20px auto 4px; padding: 12px 48px; font-size: 20px; font-weight: bold;
+          background: #1e8a3a; color: #fff; border: none; border-radius: 12px; cursor: pointer; }
+  #play:hover { background: #26a648; }
+  #helpBtn { position: fixed; top: 14px; right: 14px; z-index: 999; width: 46px; height: 46px; border-radius: 50%;
+             border: 2px solid #f2c81e; background: #2a160a; color: #f5deb3; font-size: 24px; font-weight: bold; cursor: pointer; }
 </style>
 <script type="importmap">
 {
@@ -19,9 +37,42 @@
 </script>
 </head>
 <body>
-<div id="info">
-  Djembe VR. In a headset: press ENTER VR and play with your bare hands.<br>
-  On a computer: click the drum (center = bass, edge = tone, Shift + click = slap). Keys: 1 = Free mode, 2 = Rhythm mode, B / T / S = sounds.
+<button id="helpBtn" title="How to play">?</button>
+
+<div id="help" class="open">
+  <div class="card">
+    <h1>Djembe VR</h1>
+    <p class="sub">Play a West African djembe with your bare hands. No controllers needed.</p>
+
+    <h2>The 3 sounds</h2>
+    <ul>
+      <li><span class="dot bass"></span><b>Bass</b> (deep sound): hit the <b>center</b> of the drum.</li>
+      <li><span class="dot tone"></span><b>Tone</b> (medium sound): hit <b>near the edge</b>.</li>
+      <li><span class="dot slap"></span><b>Slap</b> (sharp sound): hit <b>near the edge, fast and hard</b>.</li>
+    </ul>
+    <p>The ring drawn on the drum skin shows where the center zone ends.</p>
+
+    <h2>Free mode</h2>
+    <p>Play anything you like. No score, just have fun and create your own rhythms.</p>
+
+    <h2>Rhythm mode (the game)</h2>
+    <p>1. Coloured balls fall onto the drum. The colour tells you which sound to play.</p>
+    <p>2. Hit the matching sound at the exact moment the ball touches the skin.</p>
+    <p>3. <b>Perfect</b> = 100 points, <b>Good</b> = 50 points, <b>Miss</b> = 0. Playing the wrong sound breaks your combo.</p>
+    <p>4. Chain good hits to build your combo. A metronome ticks to help you keep the beat.</p>
+    <p>5. At the end of the song you see your final score and accuracy. Try to reach 100%!</p>
+
+    <h2>In VR (Meta Quest)</h2>
+    <p>Press <b>ENTER VR</b>, put your controllers down and raise your hands. The drum appears in front of you, at the right height.
+       Touch the <b>FREE</b>, <b>RHYTHM</b> or <b>HELP</b> buttons next to the drum with your index finger.</p>
+
+    <h2>On a computer</h2>
+    <p>Click the drum: center = bass, edge = tone, <kbd>Shift</kbd> + click = slap.<br>
+       Keys: <kbd>1</kbd> Free mode, <kbd>2</kbd> Rhythm mode, <kbd>B</kbd> <kbd>T</kbd> <kbd>S</kbd> sounds, <kbd>H</kbd> help.<br>
+       Drag to look around, scroll to zoom.</p>
+
+    <button id="play">PLAY</button>
+  </div>
 </div>
 
 <script type="module">
@@ -272,6 +323,7 @@ const state = {
   judgeColor: '#ffffff',
   judgeUntil: Infinity,
   finished: false,
+  help: false,
 };
 
 function drawPanel() {
@@ -316,8 +368,96 @@ function drawPanel() {
   g.textAlign = 'center';
   g.font = '28px sans-serif';
   g.fillStyle = '#c9b48f';
-  g.fillText('Touch FREE or RHYTHM with your finger to switch mode', 512, 460);
+  g.fillText('Touch FREE, RHYTHM or HELP with your finger', 512, 460);
   panelTex.needsUpdate = true;
+}
+
+// =====================================================================
+// Help panel in VR (rules of the game)
+// =====================================================================
+const helpCanvas = document.createElement('canvas');
+helpCanvas.width = 1024; helpCanvas.height = 1024;
+const helpTex = new THREE.CanvasTexture(helpCanvas);
+helpTex.colorSpace = THREE.SRGBColorSpace;
+const helpPanel = new THREE.Mesh(
+  new THREE.PlaneGeometry(0.62, 0.62),
+  new THREE.MeshBasicMaterial({ map: helpTex, transparent: true })
+);
+helpPanel.rotation.x = -0.2;
+helpPanel.visible = false;
+station.add(helpPanel);
+
+function drawHelpPanel() {
+  const g = helpCanvas.getContext('2d');
+  g.clearRect(0, 0, 1024, 1024);
+  g.beginPath();
+  g.roundRect(8, 8, 1008, 1008, 40);
+  g.fillStyle = 'rgba(25,12,5,0.92)';
+  g.fill();
+  g.strokeStyle = '#f2c81e';
+  g.lineWidth = 6;
+  g.stroke();
+
+  g.textAlign = 'center';
+  g.fillStyle = '#ffcf8a';
+  g.font = 'bold 60px sans-serif';
+  g.fillText('HOW TO PLAY', 512, 90);
+
+  g.textAlign = 'left';
+  let y = 165;
+  const line = (text, color = '#f5deb3', size = 36, bold = false) => {
+    g.font = `${bold ? 'bold ' : ''}${size}px sans-serif`;
+    g.fillStyle = color;
+    g.fillText(text, 60, y);
+    y += size + 16;
+  };
+  const sound = (type, text) => {
+    g.fillStyle = CSS_COLORS[type];
+    g.beginPath(); g.arc(78, y - 12, 16, 0, Math.PI * 2); g.fill();
+    g.font = '36px sans-serif';
+    g.fillStyle = '#f5deb3';
+    g.fillText(text, 110, y);
+    y += 52;
+  };
+
+  line('Hit the drum with your bare hands.', '#f5deb3', 38);
+  y += 8;
+  line('THE 3 SOUNDS', '#f2c81e', 40, true);
+  sound('bass', 'Bass: hit the CENTER');
+  sound('tone', 'Tone: hit near the EDGE');
+  sound('slap', 'Slap: hit the EDGE fast and hard');
+  y += 10;
+  line('FREE MODE', '#f2c81e', 40, true);
+  line('Play anything you like. No score.');
+  y += 10;
+  line('RHYTHM MODE', '#f2c81e', 40, true);
+  line('Coloured balls fall onto the drum.');
+  line('Hit the matching sound when the ball');
+  line('touches the skin.');
+  line('Perfect = 100 pts   Good = 50 pts');
+  y += 10;
+  g.textAlign = 'center';
+  g.font = 'bold 36px sans-serif';
+  g.fillStyle = '#7dff7a';
+  g.fillText('Touch HELP again to close', 512, 975);
+  helpTex.needsUpdate = true;
+}
+drawHelpPanel();
+
+function setHelp(open) {
+  state.help = open;
+  helpPanel.visible = open;
+  panel.visible = !open;
+  if (open && state.mode === 'rhythm') {
+    // Pause the game while reading the rules
+    state.mode = 'free';
+    stopSong();
+    state.judge = 'Hit the drum!';
+    state.judgeColor = '#ffffff';
+    state.judgeUntil = Infinity;
+    drawPanel();
+  }
+  updateButtonColors();
 }
 
 function setJudge(text, color, duration = 0.7) {
@@ -347,7 +487,7 @@ function makeLabel(text) {
   return sprite;
 }
 
-function makeButton(label, mode, x) {
+function makeButton(label, mode, x, z) {
   const grp = new THREE.Group();
   const post = new THREE.Mesh(
     new THREE.CylinderGeometry(0.015, 0.02, 1, 10),
@@ -364,15 +504,33 @@ function makeButton(label, mode, x) {
   sprite.position.y = 0.085;
   grp.add(base, top, sprite);
   station.add(grp, post);
-  return { grp, post, top, topMat, mode, x };
+  return { grp, post, top, topMat, mode, x, z };
 }
-const buttons = [makeButton('FREE', 'free', -0.36), makeButton('RHYTHM', 'rhythm', 0.36)];
+const buttons = [
+  makeButton('FREE', 'free', -0.36, 0.05),
+  makeButton('RHYTHM', 'rhythm', 0.36, 0.05),
+  makeButton('HELP', 'help', -0.36, -0.17),
+];
 
 function updateButtonColors() {
   for (const b of buttons) {
+    if (b.mode === 'help') {
+      b.topMat.color.set(state.help ? 0x3a9aff : 0x2a6ab0);
+      b.topMat.emissive.set(state.help ? 0x1a4a8a : 0x0a2040);
+      continue;
+    }
     const active = b.mode === state.mode;
     b.topMat.color.set(active ? 0x3acb5a : 0x777777);
     b.topMat.emissive.set(active ? 0x1a6a2a : 0x000000);
+  }
+}
+
+function pressButton(b) {
+  if (b.mode === 'help') {
+    setHelp(!state.help);
+  } else {
+    if (state.help) setHelp(false);
+    setMode(b.mode);
   }
 }
 
@@ -381,11 +539,12 @@ function layout() {
   drumBody.scale.y = SKIN_Y / BASE_SKIN_Y;
   drumTop.position.y = SKIN_Y;
   panel.position.set(0, SKIN_Y + 0.45, -0.35);
+  helpPanel.position.set(0, SKIN_Y + 0.5, -0.38);
   for (const b of buttons) {
     const h = SKIN_Y + 0.05;
-    b.grp.position.set(b.x, h, 0.05);
+    b.grp.position.set(b.x, h, b.z);
     b.post.scale.y = h;
-    b.post.position.set(b.x, h / 2, 0.05);
+    b.post.position.set(b.x, h / 2, b.z);
   }
 }
 
@@ -407,6 +566,14 @@ function initAudio() {
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
 }
 document.addEventListener('pointerdown', initAudio);
+
+// Help screen on the computer
+const helpEl = document.getElementById('help');
+const openHelpScreen = () => helpEl.classList.add('open');
+const closeHelpScreen = () => helpEl.classList.remove('open');
+document.getElementById('play').addEventListener('click', closeHelpScreen);
+document.getElementById('helpBtn').addEventListener('click', openHelpScreen);
+helpEl.addEventListener('click', (e) => { if (e.target === helpEl) closeHelpScreen(); });
 
 function osc(type, f0, f1, sweep, dur, gain) {
   const t = actx.currentTime;
@@ -704,7 +871,7 @@ function updateHands(dt, now) {
         if (Math.hypot(tmp.x - bx, tmp.y - by, tmp.z - bz) < 0.055) {
           buttonCooldown = now + 1.0;
           playTick(true);
-          setMode(b.mode);
+          pressButton(b);
         }
       }
     }
@@ -743,7 +910,9 @@ function resetStation() {
 
 renderer.xr.addEventListener('sessionstart', () => {
   initAudio();
+  closeHelpScreen();
   calibrateAt = clock.getElapsedTime() + 1.0;
+  setHelp(true);   // show the rules first when entering VR
 });
 renderer.xr.addEventListener('sessionend', resetStation);
 
@@ -762,7 +931,7 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   if (!hits.length) return;
   const obj = hits[0].object;
   const btn = buttons.find(b => b.top === obj);
-  if (btn) { setMode(btn.mode); return; }
+  if (btn) { pressButton(btn); return; }
   const p = station.worldToLocal(hits[0].point.clone());
   const r = Math.hypot(p.x, p.z);
   const type = e.shiftKey ? 'slap' : (r < R * 0.5 ? 'bass' : 'tone');
@@ -772,6 +941,9 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
   const k = e.key.toLowerCase();
+  if (k === 'h') { helpEl.classList.toggle('open'); return; }
+  if (k === 'escape') { closeHelpScreen(); return; }
+  if (helpEl.classList.contains('open')) return;
   initAudio();
   if (k === '1') setMode('free');
   else if (k === '2') setMode('rhythm');
